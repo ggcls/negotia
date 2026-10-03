@@ -4,6 +4,9 @@ import { trimOWS } from "./whitespace";
 
 const NON_TOKEN = /[^!#$%&'*+\-.^_`|~0-9A-Za-z]/;
 
+/** Checks the RFC 9110 token syntax, including its non-empty requirement. */
+export const isToken = (value: string): boolean => value !== "" && !NON_TOKEN.test(value);
+
 /**
  * Parses an HTTP parameter name and value.
  *
@@ -27,12 +30,12 @@ export const parseParameter = (
   }
   const name = parameter.slice(0, equals);
   const rawValue = parameter.slice(equals + 1);
-  if (NON_TOKEN.test(name)) {
+  if (!isToken(name)) {
     return undefined;
   }
   const quoted = rawValue.startsWith('"');
   const value = quoted ? unquote(rawValue) : rawValue;
-  if (value === undefined || (!quoted && (value === "" || NON_TOKEN.test(value)))) {
+  if (value === undefined || (!quoted && !isToken(value))) {
     return undefined;
   }
   return { name: name.toLowerCase(), value, quoted };
