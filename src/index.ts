@@ -1,3 +1,3 @@
 export type { MediaPreference } from "./types";
 
-export { parseAccept } from "./accept";
+export { negotiate, parseAccept } from "./accept";

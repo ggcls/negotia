@@ -1,32 +1,7 @@
-import { isToken, parseParameters } from "./parameters";
-import { splitHeaderList, splitParameters } from "./parse";
+import { parseAvailableMediaType, parseMediaRange } from "./media";
+import { selectMediaType, type MediaCandidate } from "./media-selection";
+import { splitHeaderList } from "./parse";
 import type { MediaPreference } from "./types";
-
-const parseMediaRange = (member: string): MediaPreference | undefined => {
-  const parts = splitParameters(member);
-  if (parts === undefined) {
-    return undefined;
-  }
-
-  const range = parts[0]!;
-  const slash = range.indexOf("/");
-  if (slash < 1) {
-    return undefined;
-  }
-
-  const type = range.slice(0, slash);
-  const subtype = range.slice(slash + 1);
-  if (!isToken(type) || !isToken(subtype) || (type === "*" && subtype !== "*")) {
-    return undefined;
-  }
-
-  const parsed = parseParameters(parts.slice(1));
-  if (parsed === undefined) {
-    return undefined;
-  }
-
-  return { type: type.toLowerCase(), subtype: subtype.toLowerCase(), ...parsed };
-};
 
 /**
  * Parses an Accept header into media ranges, parameters, and quality values.
@@ -49,4 +24,41 @@ export const parseAccept = (value: string | null | undefined): MediaPreference[]
     }
   }
   return preferences;
+};
+
+/**
+ * Selects an available representation using an Accept header.
+ *
+ * Returns the original string from `available`. A missing header (`null` or
+ * `undefined`) selects the first valid available media type. Invalid header
+ * members and invalid available entries are ignored; available wildcards and
+ * `q` parameters are invalid. A present header without an acceptable match
+ * returns `undefined`.
+ *
+ * The most specific matching range supplies each representation's quality;
+ * `q=0` makes that representation unacceptable. Parameter values match exactly.
+ * Equal-precedence matching ranges use header order. Candidates are ranked by
+ * quality, specificity, parameter count, header order, then available order.
+ * The caller's available array is never mutated.
+ *
+ * @returns The selected original available value, or `undefined`.
+ */
+export const negotiate = (
+  value: string | null | undefined,
+  available: readonly string[],
+): string | undefined => {
+  const missing = value === null || value === undefined;
+  const candidates: MediaCandidate[] = [];
+  for (const original of available) {
+    const media = parseAvailableMediaType(original);
+    if (media === undefined) {
+      continue;
+    }
+    if (missing) {
+      return original;
+    }
+
+    candidates.push({ original, media });
+  }
+  return selectMediaType(parseAccept(value), candidates);
 };
